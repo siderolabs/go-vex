@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2026-04-30T09:24:27Z by kres 1762ab2.
+# Generated on 2026-04-30T13:55:32Z by kres 1762ab2.
 
 # common variables
 
@@ -218,8 +218,12 @@ unit-tests:  ## Performs unit tests
 unit-tests-race:  ## Performs unit tests with race detection enabled.
 	@$(MAKE) target-$@
 
+.PHONY: lint-markdown
+lint-markdown:  ## Runs markdownlint.
+	@$(MAKE) target-$@
+
 .PHONY: lint
-lint: lint-golangci-lint lint-gofumpt lint-govulncheck  ## Run all linters for the project.
+lint: lint-golangci-lint lint-gofumpt lint-govulncheck lint-markdown  ## Run all linters for the project.
 
 .PHONY: lint-fmt
 lint-fmt: lint-golangci-lint-fmt  ## Run all linter formatters and fix up the source tree.
