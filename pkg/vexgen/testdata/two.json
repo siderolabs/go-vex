@@ -1,0 +1,42 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-684ba04209b47342220085299b82c700b8ffb32e616dd898c659fc3beb2f9957",
+  "author": "Test Author",
+  "version": 1,
+  "tooling": "go-vex-test",
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-26519",
+        "description": "Musl versions before 1.2.6 are vulnerable to invalid input"
+      },
+      "products": [
+        {
+          "identifiers": {
+            "purl": "pkg:generic/talos@v1.11.0-alpha.1"
+          }
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "https://github.com/siderolabs/toolchain/commit/818b320288afa40da07f95998b8739bf211a9f9c",
+      "timestamp": "2025-07-14T12:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-40014"
+      },
+      "products": [
+        {
+          "identifiers": {
+            "purl": "pkg:generic/talos@v1.11.0-alpha.1"
+          }
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Talos kernel configurations do not enable the affected driver in any build",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2025-07-14T14:00:00Z"
+    }
+  ],
+  "timestamp": "2025-07-16T13:46:22Z"
+}

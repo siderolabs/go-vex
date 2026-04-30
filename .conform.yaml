@@ -1,0 +1,49 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2026-04-30T09:36:24Z by kres 1762ab2.
+
+policies:
+  - type: commit
+    spec:
+      dco: true
+      gpg:
+        required: true
+        identity:
+          gitHubOrganization: siderolabs
+      spellcheck:
+        locale: US
+      maximumOfOneCommit: false
+      header:
+        length: 89
+        imperative: true
+        case: lower
+        invalidLastCharacters: .
+      body:
+        required: true
+      conventional:
+        types:
+          - chore
+          - docs
+          - perf
+          - refactor
+          - style
+          - test
+          - release
+        scopes:
+          - .*
+  - type: license
+    spec:
+      root: .
+      skipPaths:
+        - .git
+        - testdata/
+      includeSuffixes:
+        - .go
+      excludeSuffixes:
+        - .pb.go
+        - .generated.go
+      header: |
+        // Copyright (c) 2026 Sidero Labs, Inc.
+        //
+        // Use of this software is governed by the Business Source License
+        // included in the LICENSE file.

@@ -1,0 +1,11 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2026-04-30T09:24:34Z by kres 1762ab2.
+
+*
+!pkg
+!go.mod
+!go.sum
+!.golangci.yml
+!hack/govulncheck.sh
+!.disvulncheck.yaml

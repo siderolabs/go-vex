@@ -1,0 +1,26 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-fe9b786f1fdf73f6a5971343d40d2e0522703c1341d9eb5d81b4b7c9a49a088c",
+  "author": "Test Author",
+  "version": 1,
+  "tooling": "go-vex-test",
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-40014"
+      },
+      "products": [
+        {
+          "identifiers": {
+            "purl": "pkg:generic/talos@v1.10.0-alpha.1"
+          }
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Talos kernel configurations do not enable the affected driver in any build",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2025-07-14T14:00:00Z"
+    }
+  ],
+  "timestamp": "2025-07-16T13:46:22Z"
+}
