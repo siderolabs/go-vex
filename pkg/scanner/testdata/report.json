@@ -1,0 +1,42 @@
+{
+ "matches": [
+  {
+   "vulnerability": {
+    "id": "CVE-1234-5678",
+    "dataSource": "",
+    "urls": null,
+    "cvss": null,
+    "fix": {
+     "versions": null,
+     "state": ""
+    },
+    "advisories": null,
+    "risk": 0
+   },
+   "relatedVulnerabilities": null,
+   "matchDetails": null,
+   "artifact": {
+    "id": "",
+    "name": "",
+    "version": "",
+    "type": "",
+    "locations": null,
+    "language": "",
+    "licenses": null,
+    "cpes": null,
+    "purl": "",
+    "upstreams": null
+   }
+  }
+ ],
+ "source": null,
+ "distro": {
+  "name": "",
+  "version": "",
+  "idLike": null
+ },
+ "descriptor": {
+  "name": "",
+  "version": ""
+ }
+}

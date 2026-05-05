@@ -1,0 +1,108 @@
+{
+ "spdxVersion": "SPDX-2.3",
+ "dataLicense": "CC0-1.0",
+ "SPDXID": "SPDXRef-DOCUMENT",
+ "name": "Talos",
+ "documentNamespace": "https://anchore.com/syft/dir/Talos-dd4949d3-092a-50c9-a27a-2c5bc71f1284",
+ "creationInfo": {
+  "licenseListVersion": "3.25",
+  "creators": [
+   "Organization: Anchore, Inc",
+   "Tool: syft-[not provided]"
+  ],
+  "created": "2025-09-01T06:50:54Z"
+ },
+ "packages": [
+  {
+   "name": "cni",
+   "SPDXID": "SPDXRef-Package-bldr-package-cni-db32bfd636d8011b",
+   "versionInfo": "v1.7.1",
+   "supplier": "NOASSERTION",
+   "downloadLocation": "NOASSERTION",
+   "filesAnalyzed": false,
+   "sourceInfo": "acquired package info from SBOM: /cni.spdx.json",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "Apache-2.0",
+   "copyrightText": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "SECURITY",
+     "referenceType": "cpe23Type",
+     "referenceLocator": "cpe:2.3:a:containernetworking:plugins:v1.7.1:*:*:*:*:*:*:*"
+    },
+    {
+     "referenceCategory": "SECURITY",
+     "referenceType": "cpe23Type",
+     "referenceLocator": "cpe:2.3:a:linuxfoundation:cni_network_plugins:v1.7.1:*:*:*:*:*:*:*"
+    }
+   ]
+  },
+  {
+   "name": "musl",
+   "SPDXID": "SPDXRef-Package-bldr-package-musl-40728c86ed2a2499",
+   "versionInfo": "1.2.5",
+   "supplier": "NOASSERTION",
+   "downloadLocation": "NOASSERTION",
+   "filesAnalyzed": false,
+   "sourceInfo": "acquired package info from SBOM: /musl.spdx.json",
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "MIT",
+   "copyrightText": "NOASSERTION",
+   "externalRefs": [
+    {
+     "referenceCategory": "SECURITY",
+     "referenceType": "cpe23Type",
+     "referenceLocator": "cpe:2.3:a:musl-libc:musl:1.2.5:*:*:*:*:*:*:*"
+    }
+   ]
+  },
+  {
+   "name": "Talos",
+   "SPDXID": "SPDXRef-DocumentRoot-Directory-Talos",
+   "versionInfo": "v1.11.0",
+   "supplier": "NOASSERTION",
+   "downloadLocation": "NOASSERTION",
+   "filesAnalyzed": false,
+   "licenseConcluded": "NOASSERTION",
+   "licenseDeclared": "NOASSERTION",
+   "copyrightText": "NOASSERTION",
+   "primaryPackagePurpose": "FILE"
+  }
+ ],
+ "hasExtractedLicensingInfos": [
+  {
+   "licenseId": "LicenseRef-CUSTOM",
+   "extractedText": "NOASSERTION",
+   "name": "CUSTOM"
+  }
+ ],
+ "relationships": [
+  {
+   "spdxElementId": "SPDXRef-Package-bldr-package-cni-db32bfd636d8011b",
+   "relatedSpdxElement": "SPDXRef-File-cni.spdx.json-1d3ef87365c286a7",
+   "relationshipType": "OTHER",
+   "comment": "evident-by: indicates the package's existence is evident by the given file"
+  },
+  {
+   "spdxElementId": "SPDXRef-Package-bldr-package-musl-40728c86ed2a2499",
+   "relatedSpdxElement": "SPDXRef-File-musl.spdx.json-819429088410ed75",
+   "relationshipType": "OTHER",
+   "comment": "evident-by: indicates the package's existence is evident by the given file"
+  },
+  {
+   "spdxElementId": "SPDXRef-DocumentRoot-Directory-Talos",
+   "relatedSpdxElement": "SPDXRef-Package-bldr-package-cni-db32bfd636d8011b",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-DocumentRoot-Directory-Talos",
+   "relatedSpdxElement": "SPDXRef-Package-bldr-package-musl-40728c86ed2a2499",
+   "relationshipType": "CONTAINS"
+  },
+  {
+   "spdxElementId": "SPDXRef-DOCUMENT",
+   "relatedSpdxElement": "SPDXRef-DocumentRoot-Directory-Talos",
+   "relationshipType": "DESCRIBES"
+  }
+ ]
+}

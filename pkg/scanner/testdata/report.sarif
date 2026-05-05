@@ -1,0 +1,62 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "",
+          "version": "0.0.0-dev",
+          "informationUri": "https://github.com/anchore/grype",
+          "rules": [
+            {
+              "id": "CVE-1234-5678-",
+              "name": "CVE-1234-5678",
+              "shortDescription": {
+                "text": "CVE-1234-5678 low vulnerability for  package"
+              },
+              "fullDescription": {
+                "text": "Version  is affected with no fixes reported yet."
+              },
+              "helpUri": "https://github.com/anchore/grype",
+              "help": {
+                "text": "Vulnerability CVE-1234-5678\nSeverity: low\nPackage: \nVersion: \nFix Version: \nType: \nLocation: \nData Namespace: \nLink: CVE-1234-5678",
+                "markdown": "**Vulnerability CVE-1234-5678**\n| Severity | Package | Version | Fix Version | Type | Location | Data Namespace | Link |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| low  |   |   |   |   |   |   | CVE-1234-5678  |\n"
+              },
+              "properties": {
+                "security-severity": "0.0"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CVE-1234-5678-",
+          "level": "note",
+          "message": {
+            "text": "A low vulnerability in  package: , version  was found "
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ""
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:1"
+          }
+        }
+      ]
+    }
+  ]
+}

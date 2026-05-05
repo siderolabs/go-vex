@@ -1,0 +1,9 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-f03d10718fec1c649edb6b4d0e3ea236f32eee104c0ae6145d6c42e9d93ad3ff",
+  "author": "Test Author",
+  "version": 1,
+  "tooling": "scanner.test version undefined (undefined)",
+  "statements": [],
+  "timestamp": "2025-07-16T13:46:22Z"
+}
