@@ -29,15 +29,33 @@ func WithPURLOverride(purl string) Option {
 
 // LoadExploitabilityData loads VEX data from an io.Reader.
 // The data should be in YAML format matching ExploitabilityData structure.
+//
+// Statements that declare VersionRanges are expanded into one bounded
+// Statement per release line via Expand before the data is returned.
 func LoadExploitabilityData(reader io.Reader, opts ...Option) (*ExploitabilityData, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("error reading data: %w", err)
 	}
 
-	var result ExploitabilityData
-	if err := yaml.Unmarshal(data, &result); err != nil {
+	var raw ExploitabilityData
+	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("error unmarshalling data: %w", err)
+	}
+
+	result := ExploitabilityData{
+		Author:     raw.Author,
+		IDs:        raw.IDs,
+		Statements: make([]Statement, 0, len(raw.Statements)),
+	}
+
+	for i, stmt := range raw.Statements {
+		expanded, err := Expand(stmt)
+		if err != nil {
+			return nil, statementError(i, stmt, err)
+		}
+
+		result.Statements = append(result.Statements, expanded...)
 	}
 
 	// Apply options to the loaded data.

@@ -5,10 +5,10 @@ spec:
     - id: BSL-1.1
       params:
         Licensor: Sidero Labs, Inc.
-        LicensedWork: Omni
+        LicensedWork: go-vex
         Copyright: (c) 2026 Sidero Labs, Inc.
-        ChangeDate: "2030-04-30"
-        ChangeLicense: Mozilla Public License, version 2.0
+        ChangeDate: N/A
+        ChangeLicense: N/A
         EnterpriseLink: https://www.siderolabs.com/contact/
         AdditionalUseGrant: You may make non-production use of the Licensed Work, including for testing and evaluation, or for personal use in a home lab environment. Any use of the Licensed Work in a production environment requires a commercial license from Sidero Labs.
       header: |

@@ -26,6 +26,7 @@ type Statement struct {
 	ActionTime    string                `yaml:"actionTime,omitempty"`    // Time when the action statement was created, RFC3339 format
 	LastUpdated   string                `yaml:"lastUpdated,omitempty"`   // Time when the statement was last updated, RFC3339 format
 	Aliases       []vex.VulnerabilityID `yaml:"aliases"`                 // Alternative names for the vulnerability
+	VersionRanges []string              `yaml:"versionRanges,omitempty"` // ">= vX.Y.Z" constraints; one anchor per X.Y release line. Mutually exclusive with From/To.
 }
 
 type ExploitabilityData struct {
