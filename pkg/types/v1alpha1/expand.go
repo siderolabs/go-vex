@@ -8,26 +8,24 @@ package v1alpha1
 import (
 	"fmt"
 	"regexp"
-	"strconv"
+
+	"github.com/siderolabs/go-vex/pkg/gitversion"
 )
 
-// Expand converts a Statement into one or more Statement values.
+// Expand converts a Statement into one or more Statement values, one per
+// entry in VersionRanges. When VersionRanges is empty, the statement passes
+// through unchanged.
 //
-// When VersionRanges is empty, the statement passes through unchanged.
+// Each entry is one of:
 //
-// When VersionRanges is non-empty, each ">= vX.Y.Z" constraint expands into
-// exactly one Statement bounded to the X.Y release line:
+//	">= vX.Y.Z"            → from = vX.Y.Z, to = ""    (forward, unbounded above)
+//	">= vX.Y.Z < vA.B.C"   → from = vX.Y.Z, to = vA.B.C (upper bound is exclusive)
 //
-//	from = vX.Y.Z              (the anchor as written)
-//	to   = vX.Y.999             (per-line sentinel — talos versions are always
-//	                             3-component and never reach .999)
+// Statement.To is interpreted as an exclusive upper bound throughout the
+// versionRanges path; vexgen filters via gitversion.VersionInRangeExclusive.
 //
-// The expanded statement inherits the source's Status and every other field
-// (Action, Justification, StatusNotes, Created, ...). Lines not listed are
-// silent — downstream consumers treat "no statement" as vulnerable.
-//
-// VersionRanges cannot be combined with explicit From/To. Two constraints
-// cannot target the same X.Y line.
+// Entries are checked pair-wise for overlap. VersionRanges cannot be combined
+// with explicit From/To.
 func Expand(src Statement) ([]Statement, error) {
 	if len(src.VersionRanges) == 0 {
 		return []Statement{src}, nil
@@ -37,59 +35,92 @@ func Expand(src Statement) ([]Statement, error) {
 		return nil, fmt.Errorf("versionRanges cannot be combined with explicit from/to")
 	}
 
-	out := make([]Statement, 0, len(src.VersionRanges))
-	seenLines := map[string]string{}
+	parsed := make([]parsedRange, 0, len(src.VersionRanges))
 
 	for _, c := range src.VersionRanges {
-		a, err := parseConstraint(c)
+		r, err := parseConstraint(c)
 		if err != nil {
 			return nil, err
 		}
 
-		lineKey := fmt.Sprintf("%d.%d", a.major, a.minor)
-		if prev, dup := seenLines[lineKey]; dup {
-			return nil, fmt.Errorf("duplicate constraint on %s line: %q and %q", lineKey, prev, c)
-		}
+		parsed = append(parsed, r)
+	}
 
-		seenLines[lineKey] = c
+	if err := checkOverlap(parsed); err != nil {
+		return nil, err
+	}
 
+	out := make([]Statement, 0, len(parsed))
+
+	for _, r := range parsed {
 		stmt := src
 		stmt.VersionRanges = nil
-		stmt.From = a.version
-		stmt.To = fmt.Sprintf("v%d.%d.999", a.major, a.minor)
+		stmt.From = r.from
+		stmt.To = r.to
 		out = append(out, stmt)
 	}
 
 	return out, nil
 }
 
-type parsedAnchor struct {
-	version string
-	major   int
-	minor   int
+type parsedRange struct {
+	raw  string
+	from string // inclusive lower bound
+	to   string // exclusive upper bound, "" = unbounded above
 }
 
-// constraintRE matches `>= vX.Y.Z` or `>= vX.Y.Z-(alpha|beta|rc).N`.
-// Captures: full version string, major, minor.
-var constraintRE = regexp.MustCompile(`^\s*>=\s*(v(\d+)\.(\d+)\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)\s*$`)
+// constraintRE matches `>= vX.Y.Z` optionally followed by `< vA.B.C`.
+//
+//	Group 1: lower version (always present)
+//	Group 2: upper version (empty if forward)
+var constraintRE = regexp.MustCompile(
+	`^\s*>=\s*(v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)` +
+		`(?:\s+<\s*(v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?))?\s*$`,
+)
 
-func parseConstraint(s string) (parsedAnchor, error) {
+func parseConstraint(s string) (parsedRange, error) {
 	m := constraintRE.FindStringSubmatch(s)
 	if m == nil {
-		return parsedAnchor{}, fmt.Errorf("invalid versionRange %q (expected `>= vX.Y.Z` or `>= vX.Y.Z-(alpha|beta|rc).N`)", s)
+		return parsedRange{}, fmt.Errorf(
+			"invalid versionRange %q (expected `>= vX.Y.Z` or `>= vX.Y.Z < vA.B.C`)", s,
+		)
 	}
 
-	major, err := strconv.Atoi(m[2])
-	if err != nil {
-		return parsedAnchor{}, fmt.Errorf("invalid major in %q: %w", s, err)
+	r := parsedRange{raw: s, from: m[1], to: m[2]}
+
+	if r.to != "" && gitversion.CompareVersions(r.from, r.to) >= 0 {
+		return parsedRange{}, fmt.Errorf("empty range in %q: lower bound is not strictly less than upper bound", s)
 	}
 
-	minor, err := strconv.Atoi(m[3])
-	if err != nil {
-		return parsedAnchor{}, fmt.Errorf("invalid minor in %q: %w", s, err)
+	return r, nil
+}
+
+// checkOverlap reports an error if any two half-open ranges intersect.
+// Treats an empty `to` as +∞.
+func checkOverlap(ranges []parsedRange) error {
+	for i := range ranges {
+		for j := i + 1; j < len(ranges); j++ {
+			if rangesOverlap(ranges[i], ranges[j]) {
+				return fmt.Errorf("overlapping versionRanges: %q and %q", ranges[i].raw, ranges[j].raw)
+			}
+		}
 	}
 
-	return parsedAnchor{version: m[1], major: major, minor: minor}, nil
+	return nil
+}
+
+// rangesOverlap: half-open [a.from, a.to) intersects [b.from, b.to) iff
+// a.from < b.to AND b.from < a.to.
+func rangesOverlap(a, b parsedRange) bool {
+	if a.to != "" && gitversion.CompareVersions(b.from, a.to) >= 0 {
+		return false
+	}
+
+	if b.to != "" && gitversion.CompareVersions(a.from, b.to) >= 0 {
+		return false
+	}
+
+	return true
 }
 
 func statementError(i int, s Statement, err error) error {

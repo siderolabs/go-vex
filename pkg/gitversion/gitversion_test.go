@@ -287,3 +287,69 @@ func TestVersionInRange(t *testing.T) {
 		})
 	}
 }
+
+func TestVersionInRangeExclusive(t *testing.T) {
+	tests := []struct {
+		name        string
+		version     string
+		from        string
+		to          string
+		expected    bool
+		expectError bool
+	}{
+		// Core exclusive-upper semantics.
+		{"version equal to upper bound is excluded", "v2.0.0", "v1.0.0", "v2.0.0", false, false},
+		{"version equal to lower bound is included", "v1.0.0", "v1.0.0", "v2.0.0", true, false},
+		{"version strictly inside range", "v1.5.0", "v1.0.0", "v2.0.0", true, false},
+		{"version one patch below upper still in range", "v1.9.999", "v1.0.0", "v2.0.0", true, false},
+
+		// Pre-release boundaries (where ordering matters most).
+		{"upper bound pre-release excludes itself", "v1.14.0-alpha.0", "v1.13.0", "v1.14.0-alpha.0", false, false},
+		{"version just below pre-release upper", "v1.13.999", "v1.13.0", "v1.14.0-alpha.0", true, false},
+		{"release excluded by pre-release upper", "v1.14.0", "v1.13.0", "v1.14.0-alpha.0", false, false},
+		{"alpha lower included", "v1.14.0-alpha.0", "v1.14.0-alpha.0", "v1.14.0", true, false},
+
+		// Unbounded ranges still behave like VersionInRange.
+		{"unbounded above: version equals from", "v1.0.0", "v1.0.0", "", true, false},
+		{"unbounded above: version far above from", "v9.9.9", "v1.0.0", "", true, false},
+		{"unbounded above: version below from", "v0.9.0", "v1.0.0", "", false, false},
+		{"unbounded below: version below to", "v1.9.999", "", "v2.0.0", true, false},
+		{"unbounded below: version equal to is excluded", "v2.0.0", "", "v2.0.0", false, false},
+		{"fully unbounded matches anything", "v1.5.0", "", "", true, false},
+		{"fully unbounded matches git-described version", "v1.13.0-alpha.0-12-gabcdef", "", "", true, false},
+
+		// Outside-range cases.
+		{"version below from", "v0.9.0", "v1.0.0", "v2.0.0", false, false},
+		{"version above to", "v2.1.0", "v1.0.0", "v2.0.0", false, false},
+
+		// Error pass-through from VersionInRange.
+		{"invalid version", "not-a-version", "v1.0.0", "v2.0.0", false, true},
+		{"invalid from", "v1.0.0", "garbage", "v2.0.0", false, true},
+		{"invalid to", "v1.0.0", "v1.0.0", "garbage", false, true},
+		{"from greater than to", "v1.5.0", "v2.0.0", "v1.0.0", false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := gitversion.VersionInRangeExclusive(tt.version, tt.from, tt.to)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("VersionInRangeExclusive(%q, %q, %q) expected error but got none", tt.version, tt.from, tt.to)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Errorf("VersionInRangeExclusive(%q, %q, %q) unexpected error: %v", tt.version, tt.from, tt.to, err)
+
+				return
+			}
+
+			if result != tt.expected {
+				t.Errorf("VersionInRangeExclusive(%q, %q, %q) = %v; want %v", tt.version, tt.from, tt.to, result, tt.expected)
+			}
+		})
+	}
+}

@@ -28,7 +28,7 @@ func TestExpand_Passthrough(t *testing.T) {
 	assert.Equal(t, src, got[0])
 }
 
-func TestExpand_SingleConstraint(t *testing.T) {
+func TestExpand_ForwardSingle(t *testing.T) {
 	src := v1alpha1.Statement{
 		Name:          "CVE-1",
 		Status:        vex.StatusFixed,
@@ -42,9 +42,55 @@ func TestExpand_SingleConstraint(t *testing.T) {
 
 	assert.Equal(t, vex.StatusFixed, got[0].Status)
 	assert.Equal(t, "v1.12.9", got[0].From)
-	assert.Equal(t, "v1.12.999", got[0].To)
+	assert.Empty(t, got[0].To, "bare `>=` should leave To unbounded")
 	assert.Equal(t, "fixed in stable kernel", got[0].StatusNotes)
 	assert.Empty(t, got[0].VersionRanges, "VersionRanges should be stripped on expanded statements")
+}
+
+func TestExpand_BoundedSingle(t *testing.T) {
+	src := v1alpha1.Statement{
+		Name:          "CVE-1",
+		Status:        vex.StatusFixed,
+		VersionRanges: []string{">= v1.12.7 < v1.13.0"},
+	}
+
+	got, err := v1alpha1.Expand(src)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+
+	assert.Equal(t, "v1.12.7", got[0].From)
+	assert.Equal(t, "v1.13.0", got[0].To)
+}
+
+func TestExpand_BoundedStoresLiterally(t *testing.T) {
+	// `to` is stored as written; vexgen interprets it as exclusive.
+	cases := map[string]struct {
+		input string
+		from  string
+		to    string
+	}{
+		"patch boundary":   {">= v1.13.0 < v1.13.5", "v1.13.0", "v1.13.5"},
+		"minor boundary":   {">= v1.12.7 < v1.13.0", "v1.12.7", "v1.13.0"},
+		"pre at boundary":  {">= v1.13.0 < v1.14.0-alpha.0", "v1.13.0", "v1.14.0-alpha.0"},
+		"major boundary":   {">= v1.99.0 < v2.0.0", "v1.99.0", "v2.0.0"},
+		"both pre-release": {">= v1.14.0-alpha.0 < v1.14.0-alpha.5", "v1.14.0-alpha.0", "v1.14.0-alpha.5"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			src := v1alpha1.Statement{
+				Name:          "CVE-1",
+				Status:        vex.StatusFixed,
+				VersionRanges: []string{tc.input},
+			}
+
+			got, err := v1alpha1.Expand(src)
+			require.NoError(t, err)
+			require.Len(t, got, 1)
+			assert.Equal(t, tc.from, got[0].From)
+			assert.Equal(t, tc.to, got[0].To)
+		})
+	}
 }
 
 func TestExpand_MultiLineFix(t *testing.T) {
@@ -52,8 +98,8 @@ func TestExpand_MultiLineFix(t *testing.T) {
 		Name:   "CVE-1",
 		Status: vex.StatusFixed,
 		VersionRanges: []string{
-			">= v1.13.1",
-			">= v1.12.8",
+			">= v1.12.8 < v1.13.0",
+			">= v1.13.1 < v1.14.0-alpha.0",
 			">= v1.14.0-alpha.0",
 		},
 	}
@@ -62,13 +108,12 @@ func TestExpand_MultiLineFix(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got, 3)
 
-	// Order is the input order (not sorted).
-	assert.Equal(t, "v1.13.1", got[0].From)
-	assert.Equal(t, "v1.13.999", got[0].To)
-	assert.Equal(t, "v1.12.8", got[1].From)
-	assert.Equal(t, "v1.12.999", got[1].To)
+	assert.Equal(t, "v1.12.8", got[0].From)
+	assert.Equal(t, "v1.13.0", got[0].To)
+	assert.Equal(t, "v1.13.1", got[1].From)
+	assert.Equal(t, "v1.14.0-alpha.0", got[1].To)
 	assert.Equal(t, "v1.14.0-alpha.0", got[2].From)
-	assert.Equal(t, "v1.14.999", got[2].To)
+	assert.Empty(t, got[2].To, "trailing forward entry should be unbounded above")
 
 	for _, s := range got {
 		assert.Equal(t, vex.StatusFixed, s.Status)
@@ -80,7 +125,7 @@ func TestExpand_NotAffectedStatus(t *testing.T) {
 		Name:          "CVE-1",
 		Status:        vex.StatusNotAffected,
 		Justification: vex.VulnerableCodeNotPresent,
-		VersionRanges: []string{">= v1.13.0"},
+		VersionRanges: []string{">= v1.13.0 < v1.14.0-alpha.0"},
 	}
 
 	got, err := v1alpha1.Expand(src)
@@ -90,7 +135,7 @@ func TestExpand_NotAffectedStatus(t *testing.T) {
 	assert.Equal(t, vex.StatusNotAffected, got[0].Status)
 	assert.Equal(t, vex.VulnerableCodeNotPresent, got[0].Justification)
 	assert.Equal(t, "v1.13.0", got[0].From)
-	assert.Equal(t, "v1.13.999", got[0].To)
+	assert.Equal(t, "v1.14.0-alpha.0", got[0].To)
 }
 
 func TestExpand_RejectsCombiningWithFromTo(t *testing.T) {
@@ -106,19 +151,46 @@ func TestExpand_RejectsCombiningWithFromTo(t *testing.T) {
 	assert.Contains(t, err.Error(), "from/to")
 }
 
-func TestExpand_RejectsDuplicateLine(t *testing.T) {
+func TestExpand_RejectsOverlap(t *testing.T) {
+	cases := map[string][]string{
+		"forward overlaps forward":    {">= v1.12.7", ">= v1.13.0"},
+		"bounded overlaps bounded":    {">= v1.12.7 < v1.13.0", ">= v1.12.8 < v1.13.0"},
+		"forward swallows bounded":    {">= v1.12.0", ">= v1.13.1 < v1.14.0-alpha.0"},
+		"two forwards":                {">= v1.12.0", ">= v1.99.0"},
+		"adjacent inclusive boundary": {">= v1.12.7 < v1.13.1", ">= v1.13.0 < v1.14.0-alpha.0"},
+	}
+
+	for name, ranges := range cases {
+		t.Run(name, func(t *testing.T) {
+			src := v1alpha1.Statement{
+				Name:          "CVE-1",
+				Status:        vex.StatusFixed,
+				VersionRanges: ranges,
+			}
+
+			_, err := v1alpha1.Expand(src)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "overlap")
+		})
+	}
+}
+
+func TestExpand_AcceptsAdjacentRanges(t *testing.T) {
+	// Half-open semantics: upper bound of one range can equal the lower
+	// bound of the next without overlap.
 	src := v1alpha1.Statement{
 		Name:   "CVE-1",
 		Status: vex.StatusFixed,
 		VersionRanges: []string{
-			">= v1.12.8",
-			">= v1.12.9",
+			">= v1.12.7 < v1.13.0",
+			">= v1.13.0 < v1.14.0-alpha.0",
+			">= v1.14.0-alpha.0",
 		},
 	}
 
-	_, err := v1alpha1.Expand(src)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate")
+	got, err := v1alpha1.Expand(src)
+	require.NoError(t, err)
+	assert.Len(t, got, 3)
 }
 
 func TestExpand_RejectsMalformedConstraint(t *testing.T) {
@@ -130,6 +202,11 @@ func TestExpand_RejectsMalformedConstraint(t *testing.T) {
 		"too many components":    ">= v1.12.0.0",
 		"unsupported prerelease": ">= v1.14.0-foo",
 		"git suffix":             ">= v1.12.7-1-gdeadbeef",
+		"pipe alternation":       ">= v1.12.7 || >= v1.13.0",
+		"upper without lower":    "< v1.13.0",
+		"backwards bounds":       ">= v1.13.5 < v1.13.0",
+		"equal bounds":           ">= v1.13.5 < v1.13.5",
+		"empty after operator":   ">= ",
 	}
 	for label, c := range cases {
 		t.Run(label, func(t *testing.T) {

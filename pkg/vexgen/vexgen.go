@@ -78,7 +78,7 @@ func ConvertStatements(statements []v1alpha1.Statement, productIDs map[vex.Ident
 	result := make([]vex.Statement, 0, len(statements))
 
 	for _, stmt := range statements {
-		inRange, err := gitversion.VersionInRange(productVersion, stmt.From, stmt.To)
+		inRange, err := gitversion.VersionInRangeExclusive(productVersion, stmt.From, stmt.To)
 		if err != nil {
 			return result, fmt.Errorf("error checking version range: %w", err)
 		} else if !inRange {

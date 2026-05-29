@@ -106,6 +106,22 @@ func CompareVersions(a, b string) int {
 	return 0
 }
 
+// VersionInRangeExclusive checks if version is in the half-open range
+// [from, to): inclusive on the lower bound, exclusive on the upper.
+// An empty "from" means unbounded below; an empty "to" means unbounded above.
+func VersionInRangeExclusive(version, from, to string) (bool, error) {
+	ok, err := VersionInRange(version, from, to)
+	if err != nil || !ok {
+		return ok, err
+	}
+
+	if to != "" && CompareVersions(version, to) == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // VersionInRange checks if a given version is within the specified range [from, to], inclusive.
 // It reports an error if the version format cannot be compared.
 func VersionInRange(version, from, to string) (bool, error) {
