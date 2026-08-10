@@ -7,6 +7,7 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -83,8 +84,9 @@ type Options struct {
 
 // Scanner is a wrapper around Grype's vulnerability scanner, with added support for VEX data and report formatting.
 type Scanner struct {
-	db vulnerability.Provider
-	id string
+	db     vulnerability.Provider
+	status *vulnerability.ProviderStatus
+	id     string
 }
 
 // NewScanner creates a scanner with given exploitability data and loads a DB.
@@ -106,14 +108,54 @@ func NewScanner(opts Options) (*Scanner, error) {
 		*installationConfig,
 		true,
 	)
-	if status == nil || status.Error != nil {
-		return nil, err
+	if err != nil {
+		return nil, fmt.Errorf("error loading vulnerability DB: %w", err)
 	}
 
+	if status == nil {
+		return nil, errors.New("error loading vulnerability DB: no database status reported")
+	}
+
+	if status.Error != nil {
+		return nil, fmt.Errorf("error loading vulnerability DB: %w", status.Error)
+	}
+
+	// the DB path is local to the process that loaded it and says nothing to a
+	// report consumer, so keep it out of the reports built from this status.
+	status.Path = ""
+
 	return &Scanner{
-		id: opts.ID,
-		db: db,
+		id:     opts.ID,
+		db:     db,
+		status: status,
 	}, nil
+}
+
+// DatabaseStatus describes the vulnerability database backing the scanner: which
+// build it is, where it came from and the provenance of the data feeds in it.
+//
+// Reports embed it as descriptor.db, matching Grype's own JSON output. Two
+// reports that disagree can be told apart by their database build.
+type DatabaseStatus struct {
+	Status    *vulnerability.ProviderStatus           `json:"status"`
+	Providers map[string]vulnerability.DataProvenance `json:"providers"`
+}
+
+// DatabaseStatus returns the status of the loaded vulnerability database.
+func (sc *Scanner) DatabaseStatus() DatabaseStatus {
+	status := DatabaseStatus{
+		Status: sc.status,
+	}
+
+	if provider, ok := sc.db.(vulnerability.StoreMetadataProvider); ok {
+		// provenance is best-effort reporting metadata; a failure here must not
+		// fail the scan.
+		if provenance, err := provider.DataProvenance(); err == nil {
+			status.Providers = provenance
+		}
+	}
+
+	return status
 }
 
 // Close closes the scanner, unloading the vulnerability database.
@@ -161,7 +203,7 @@ func (sc *Scanner) ScanSBOM(sbomPath string, timestamp *time.Time, vexPath ...st
 		nil, // Do not report vulnerabilities suppressed by VEX (fixed/not_affected)
 		sc.db,
 		nil,
-		nil,
+		sc.DatabaseStatus(),
 		models.SortByPackage,
 		true,
 		&models.DistroAlertData{},
@@ -171,7 +213,7 @@ func (sc *Scanner) ScanSBOM(sbomPath string, timestamp *time.Time, vexPath ...st
 	}
 
 	if timestamp != nil {
-		modelDocument.Descriptor.Timestamp = timestamp.Format("2025-12-18T17:09:08.143727492+01:00")
+		modelDocument.Descriptor.Timestamp = timestamp.Format(time.RFC3339Nano)
 	}
 
 	return &modelDocument, s, nil

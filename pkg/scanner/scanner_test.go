@@ -121,6 +121,18 @@ func TestScanSBOM(t *testing.T) {
 	assert.NotNil(t, sbom)
 	assert.Equal(t, 2, sbom.Artifacts.Packages.PackageCount()) // two packages left for test
 
+	assert.Equal(t, "2025-07-16T13:46:22Z", doc.Descriptor.Timestamp)
+
+	// the report has to name the DB build it came from: two reports that disagree
+	// are otherwise indistinguishable.
+	dbStatus, ok := doc.Descriptor.DB.(scanner.DatabaseStatus)
+	require.True(t, ok, "expected descriptor.db to hold a DatabaseStatus, got %T", doc.Descriptor.DB)
+	require.NotNil(t, dbStatus.Status)
+	assert.False(t, dbStatus.Status.Built.IsZero(), "expected a DB build timestamp")
+	assert.NotEmpty(t, dbStatus.Status.SchemaVersion)
+	assert.Empty(t, dbStatus.Status.Path, "expected the local DB path to be left out of reports")
+	assert.NotEmpty(t, dbStatus.Providers)
+
 	matchesWithVex := len(doc.Matches)
 	found26519 := false
 	found67499 := false
