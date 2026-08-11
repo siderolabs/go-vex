@@ -8,12 +8,13 @@ package v1alpha1
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/openvex/go-vex/pkg/vex"
 )
 
 type Statement struct {
-	Created       string                `yaml:"created"`                 // RFC3339 date on which the statement was created
+	Created       time.Time             `yaml:"created"`                 // RFC3339 date on which the statement was created
 	Name          vex.VulnerabilityID   `yaml:"name"`                    // Generally should be CVE name
 	Description   string                `yaml:"description"`             // Human-readable description of the statement
 	From          string                `yaml:"from"`                    // First version this statement applies to
@@ -23,8 +24,8 @@ type Statement struct {
 	Justification vex.Justification     `yaml:"justification,omitempty"` // Justification for the not_affected status
 	Impact        string                `yaml:"impact,omitempty"`        // Human-readable impact statement of the vulnerability
 	Action        string                `yaml:"action,omitempty"`        // "affected" entries MUST include a statement about mitigation actions
-	ActionTime    string                `yaml:"actionTime,omitempty"`    // Time when the action statement was created, RFC3339 format
-	LastUpdated   string                `yaml:"lastUpdated,omitempty"`   // Time when the statement was last updated, RFC3339 format
+	ActionTime    time.Time             `yaml:"actionTime,omitempty"`    // Time when the action statement was created, RFC3339 format
+	LastUpdated   time.Time             `yaml:"lastUpdated,omitempty"`   // Time when the statement was last updated, RFC3339 format
 	Aliases       []vex.VulnerabilityID `yaml:"aliases"`                 // Alternative names for the vulnerability
 	VersionRanges []string              `yaml:"versionRanges,omitempty"` // ">= vX.Y.Z" constraints; one anchor per X.Y release line. Mutually exclusive with From/To.
 }
@@ -46,7 +47,7 @@ func (d *ExploitabilityData) Validate() error {
 	}
 
 	for i, stmt := range d.Statements {
-		if stmt.Created == "" {
+		if stmt.Created.IsZero() {
 			return fmt.Errorf("statement %d: created date is required", i)
 		}
 

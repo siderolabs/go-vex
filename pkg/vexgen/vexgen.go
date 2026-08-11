@@ -85,31 +85,26 @@ func ConvertStatements(statements []v1alpha1.Statement, productIDs map[vex.Ident
 			continue
 		}
 
-		createdTime, err := time.Parse(time.RFC3339, stmt.Created)
-		if err != nil {
-			return result, fmt.Errorf("error parsing time: %w", err)
+		// A statement with no created date used to be caught by time.Parse
+		// failing on the empty string. Nothing downstream rejects it — openvex's
+		// Statement.Validate ignores the timestamp — so without this the document
+		// would carry a plausible-looking 0001-01-01T00:00:00Z.
+		if stmt.Created.IsZero() {
+			return result, fmt.Errorf("statement %q: created date is required", stmt.Name)
 		}
 
+		// the optional timestamps stay nil when unset: openvex treats a zero
+		// timestamp as a real point in time, not as "absent".
 		var actionTime *time.Time
 
-		if stmt.ActionTime != "" {
-			actionTimeParsed, err := time.Parse(time.RFC3339, stmt.ActionTime)
-			if err != nil {
-				return result, fmt.Errorf("error parsing action time: %w", err)
-			}
-
-			actionTime = &actionTimeParsed
+		if !stmt.ActionTime.IsZero() {
+			actionTime = &stmt.ActionTime
 		}
 
 		var lastUpdated *time.Time
 
-		if stmt.LastUpdated != "" {
-			lastUpdatedParsed, err := time.Parse(time.RFC3339, stmt.LastUpdated)
-			if err != nil {
-				return result, fmt.Errorf("error parsing last updated time: %w", err)
-			}
-
-			lastUpdated = &lastUpdatedParsed
+		if !stmt.LastUpdated.IsZero() {
+			lastUpdated = &stmt.LastUpdated
 		}
 
 		entry := vex.Statement{
@@ -127,7 +122,7 @@ func ConvertStatements(statements []v1alpha1.Statement, productIDs map[vex.Ident
 			},
 			Status:                   stmt.Status,
 			StatusNotes:              stmt.StatusNotes,
-			Timestamp:                &createdTime,
+			Timestamp:                &stmt.Created,
 			Justification:            stmt.Justification,
 			ImpactStatement:          stmt.Impact,
 			ActionStatement:          stmt.Action,

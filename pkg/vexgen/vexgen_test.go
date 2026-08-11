@@ -19,6 +19,16 @@ import (
 	"github.com/siderolabs/go-vex/pkg/vexgen"
 )
 
+// ts parses an RFC3339 timestamp for use in test fixtures.
+func ts(value string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		panic("parsing test timestamp " + value + ": " + err.Error())
+	}
+
+	return parsed
+}
+
 func TestMakeVersionedProductIDs(t *testing.T) {
 	tests := []struct {
 		ids            map[vex.IdentifierType]string
@@ -114,7 +124,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:          "CVE-2023-1234",
 					Description:   "Test vulnerability",
-					Created:       "2023-01-01T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
 					From:          "v1.0.0",
 					To:            "v2.0.0",
 					Status:        vex.StatusNotAffected,
@@ -132,7 +142,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:          "CVE-2023-1234",
 					Description:   "Test vulnerability",
-					Created:       "2023-01-01T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
 					From:          "v2.0.0",
 					To:            "v3.0.0",
 					Status:        vex.StatusNotAffected,
@@ -145,73 +155,14 @@ func TestConvertStatements(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name: "invalid created time format",
-			statements: []v1alpha1.Statement{
-				{
-					Name:          "CVE-2023-1234",
-					Description:   "Test vulnerability",
-					Created:       "invalid-time",
-					From:          "v1.0.0",
-					To:            "v2.0.0",
-					Status:        vex.StatusNotAffected,
-					Justification: vex.VulnerableCodeNotPresent,
-				},
-			},
-			productIDs:     productIDs,
-			productVersion: "v1.5.0",
-			expectedCount:  0,
-			expectError:    true,
-			errorContains:  "error parsing time",
-		},
-		{
-			name: "invalid action time format",
-			statements: []v1alpha1.Statement{
-				{
-					Name:          "CVE-2023-1234",
-					Description:   "Test vulnerability",
-					Created:       "2023-01-01T00:00:00Z",
-					ActionTime:    "invalid-time",
-					From:          "v1.0.0",
-					To:            "v2.0.0",
-					Status:        vex.StatusNotAffected,
-					Justification: vex.VulnerableCodeNotPresent,
-				},
-			},
-			productIDs:     productIDs,
-			productVersion: "v1.5.0",
-			expectedCount:  0,
-			expectError:    true,
-			errorContains:  "error parsing action time",
-		},
-		{
-			name: "invalid last updated time format",
-			statements: []v1alpha1.Statement{
-				{
-					Name:          "CVE-2023-1234",
-					Description:   "Test vulnerability",
-					Created:       "2023-01-01T00:00:00Z",
-					LastUpdated:   "invalid-time",
-					From:          "v1.0.0",
-					To:            "v2.0.0",
-					Status:        vex.StatusNotAffected,
-					Justification: vex.VulnerableCodeNotPresent,
-				},
-			},
-			productIDs:     productIDs,
-			productVersion: "v1.5.0",
-			expectedCount:  0,
-			expectError:    true,
-			errorContains:  "error parsing last updated time",
-		},
-		{
 			name: "statement with all optional times",
 			statements: []v1alpha1.Statement{
 				{
 					Name:          "CVE-2023-1234",
 					Description:   "Test vulnerability",
-					Created:       "2023-01-01T00:00:00Z",
-					ActionTime:    "2023-01-02T00:00:00Z",
-					LastUpdated:   "2023-01-03T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
+					ActionTime:    ts("2023-01-02T00:00:00Z"),
+					LastUpdated:   ts("2023-01-03T00:00:00Z"),
 					From:          "v1.0.0",
 					To:            "v2.0.0",
 					Status:        vex.StatusNotAffected,
@@ -238,7 +189,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:          "CVE-2023-1234",
 					Description:   "Test vulnerability 1",
-					Created:       "2023-01-01T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
 					From:          "v1.0.0",
 					To:            "v2.0.0",
 					Status:        vex.StatusNotAffected,
@@ -247,7 +198,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:          "CVE-2023-5678",
 					Description:   "Test vulnerability 2",
-					Created:       "2023-01-01T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
 					From:          "v2.0.0",
 					To:            "v3.0.0",
 					Status:        vex.StatusNotAffected,
@@ -256,7 +207,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:          "CVE-2023-9999",
 					Description:   "Test vulnerability 3",
-					Created:       "2023-01-01T00:00:00Z",
+					Created:       ts("2023-01-01T00:00:00Z"),
 					From:          "v1.0.0",
 					To:            "v3.0.0",
 					Status:        vex.StatusNotAffected,
@@ -274,7 +225,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:        "CVE-2023-1234",
 					Description: "Test vulnerability",
-					Created:     "2023-01-01T00:00:00Z",
+					Created:     ts("2023-01-01T00:00:00Z"),
 					From:        "v1.0.0",
 					To:          "v2.0.0",
 					Status:      vex.StatusNotAffected,
@@ -287,12 +238,32 @@ func TestConvertStatements(t *testing.T) {
 			errorContains:  "either justification or impact statement must be defined",
 		},
 		{
+			// a zero timestamp must not reach the document: the parse that used to
+			// reject an empty created date is gone now that the field is typed.
+			name: "statement missing created date",
+			statements: []v1alpha1.Statement{
+				{
+					Name:          "CVE-2023-1234",
+					Description:   "Test vulnerability",
+					From:          "v1.0.0",
+					To:            "v2.0.0",
+					Status:        vex.StatusNotAffected,
+					Justification: vex.VulnerableCodeNotPresent,
+				},
+			},
+			productIDs:     productIDs,
+			productVersion: "v1.5.0",
+			expectedCount:  0,
+			expectError:    true,
+			errorContains:  "created date is required",
+		},
+		{
 			name: "statement missing action for affected status",
 			statements: []v1alpha1.Statement{
 				{
 					Name:        "CVE-2023-1234",
 					Description: "Test vulnerability",
-					Created:     "2023-01-01T00:00:00Z",
+					Created:     ts("2023-01-01T00:00:00Z"),
 					From:        "v1.0.0",
 					To:          "v2.0.0",
 					Status:      vex.StatusAffected,
@@ -310,7 +281,7 @@ func TestConvertStatements(t *testing.T) {
 				{
 					Name:        "CVE-2023-1234",
 					Description: "Test vulnerability",
-					Created:     "2023-01-01T00:00:00Z",
+					Created:     ts("2023-01-01T00:00:00Z"),
 					From:        "v1.0.0",
 					To:          "v2.0.0",
 					Status:      vex.StatusAffected,
@@ -371,7 +342,7 @@ func TestE2E(t *testing.T) {
 					{
 						Name:          "CVE-2023-1234",
 						Description:   "Test vulnerability",
-						Created:       "2023-01-01T00:00:00Z",
+						Created:       ts("2023-01-01T00:00:00Z"),
 						From:          "v1.0.0",
 						To:            "v2.0.0",
 						Status:        vex.StatusAffected,
@@ -392,7 +363,7 @@ func TestE2E(t *testing.T) {
 					{
 						Name:        "CVE-2023-1234",
 						Description: "Test vulnerability",
-						Created:     "2023-01-01T00:00:00Z",
+						Created:     ts("2023-01-01T00:00:00Z"),
 						From:        "v1.5.0",
 						To:          "v2.0.0",
 						Status:      vex.StatusAffected,
@@ -414,14 +385,14 @@ func TestE2E(t *testing.T) {
 					{
 						Name:        "CVE-2025-26519",
 						Description: "Musl versions before 1.2.6 are vulnerable to invalid input",
-						Created:     "2025-07-14T12:00:00Z",
+						Created:     ts("2025-07-14T12:00:00Z"),
 						From:        "v1.10.0-alpha.1-35-g46d67fe44",
 						Status:      vex.StatusFixed,
 						StatusNotes: "https://github.com/siderolabs/toolchain/commit/818b320288afa40da07f95998b8739bf211a9f9c",
 					},
 					{
 						Name:          "CVE-2025-40014",
-						Created:       "2025-07-14T14:00:00Z",
+						Created:       ts("2025-07-14T14:00:00Z"),
 						From:          "v1.4.0-alpha.0-16-g683b4ccb4",
 						Status:        vex.StatusNotAffected,
 						Justification: vex.VulnerableCodeNotPresent,
@@ -443,14 +414,14 @@ func TestE2E(t *testing.T) {
 					{
 						Name:        "CVE-2025-26519",
 						Description: "Musl versions before 1.2.6 are vulnerable to invalid input",
-						Created:     "2025-07-14T12:00:00Z",
+						Created:     ts("2025-07-14T12:00:00Z"),
 						From:        "v1.10.0-alpha.1-35-g46d67fe44",
 						Status:      vex.StatusFixed,
 						StatusNotes: "https://github.com/siderolabs/toolchain/commit/818b320288afa40da07f95998b8739bf211a9f9c",
 					},
 					{
 						Name:          "CVE-2025-40014",
-						Created:       "2025-07-14T14:00:00Z",
+						Created:       ts("2025-07-14T14:00:00Z"),
 						From:          "v1.4.0-alpha.0-16-g683b4ccb4",
 						Status:        vex.StatusNotAffected,
 						Justification: vex.VulnerableCodeNotPresent,
@@ -472,14 +443,14 @@ func TestE2E(t *testing.T) {
 					{
 						Name:        "CVE-2025-26519",
 						Description: "Musl versions before 1.2.6 are vulnerable to invalid input",
-						Created:     "2025-07-14T12:00:00Z",
+						Created:     ts("2025-07-14T12:00:00Z"),
 						From:        "v1.10.0-alpha.1-35-g46d67fe44",
 						Status:      vex.StatusFixed,
 						StatusNotes: "https://github.com/siderolabs/toolchain/commit/818b320288afa40da07f95998b8739bf211a9f9c",
 					},
 					{
 						Name:          "CVE-2025-40014",
-						Created:       "2025-07-14T14:00:00Z",
+						Created:       ts("2025-07-14T14:00:00Z"),
 						From:          "v1.4.0-alpha.0-16-g683b4ccb4",
 						Status:        vex.StatusNotAffected,
 						Justification: vex.VulnerableCodeNotPresent,
