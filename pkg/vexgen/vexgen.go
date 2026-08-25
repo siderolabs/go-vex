@@ -14,12 +14,42 @@ import (
 	"github.com/openvex/go-vex/pkg/vex"
 
 	"github.com/siderolabs/go-vex/pkg/gitversion"
+	"github.com/siderolabs/go-vex/pkg/kernelversion"
 	"github.com/siderolabs/go-vex/pkg/types/v1alpha1"
 )
 
+// Options control how statements are selected for a target.
+type Options struct {
+	// KernelVersion is the Linux kernel version shipped by the target, as
+	// X.Y.Z. When empty, statements declaring kernelVersionRanges are skipped,
+	// because there is nothing to compare them against.
+	KernelVersion string
+}
+
+// Option configures Options.
+type Option func(*Options)
+
+// WithKernelVersion sets the Linux kernel version shipped by the target, so
+// that statements declaring kernelVersionRanges can be evaluated.
+func WithKernelVersion(version string) Option {
+	return func(o *Options) {
+		o.KernelVersion = version
+	}
+}
+
+func makeOptions(opts ...Option) Options {
+	var o Options
+
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	return o
+}
+
 // Populate generates a VEX document from the provided exploitability data
 // for the given product version.
-func Populate(data *v1alpha1.ExploitabilityData, productVersion string, timestamp *time.Time, tooling string) (vex.VEX, error) {
+func Populate(data *v1alpha1.ExploitabilityData, productVersion string, timestamp *time.Time, tooling string, opts ...Option) (vex.VEX, error) {
 	doc := vex.New()
 	doc.Author = data.Author
 
@@ -34,7 +64,7 @@ func Populate(data *v1alpha1.ExploitabilityData, productVersion string, timestam
 
 	var err error
 
-	doc.Statements, err = ConvertStatements(data.Statements, productIDs, productVersion)
+	doc.Statements, err = ConvertStatements(data.Statements, productIDs, productVersion, opts...)
 	if err != nil {
 		return doc, fmt.Errorf("error converting statement: %w", err)
 	}
@@ -72,15 +102,67 @@ func MakeVersionedProductIDs(ids map[vex.IdentifierType]string, productVersion s
 	return productIDs
 }
 
+// statementApplies reports whether a statement applies to the target.
+//
+// A statement declaring kernelVersionRanges is matched on the kernel version
+// and applies if the target kernel falls in any of its ranges; everything else
+// is matched on the Talos product version.
+func statementApplies(stmt v1alpha1.Statement, productVersion string, options Options) (bool, error) {
+	if len(stmt.KernelVersionRanges) == 0 {
+		inRange, err := gitversion.VersionInRangeExclusive(productVersion, stmt.From, stmt.To)
+		if err != nil {
+			return false, fmt.Errorf("error checking version range: %w", err)
+		}
+
+		return inRange, nil
+	}
+
+	// Without a kernel version there is nothing to compare against, so the
+	// statement cannot be shown to apply.
+	if options.KernelVersion == "" {
+		return false, nil
+	}
+
+	for _, c := range stmt.KernelVersionRanges {
+		from, to, err := v1alpha1.ParseKernelRange(c)
+		if err != nil {
+			return false, fmt.Errorf("error parsing kernel version range for %s: %w", stmt.Name, err)
+		}
+
+		inRange, err := kernelversion.VersionInRangeExclusive(options.KernelVersion, from, to)
+		if err != nil {
+			return false, fmt.Errorf("error checking kernel version range for %s: %w", stmt.Name, err)
+		}
+
+		if inRange {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // ConvertStatements converts the provided statement data to VEX statements,
 // filtering out statements that do not apply to the specified product version.
-func ConvertStatements(statements []v1alpha1.Statement, productIDs map[vex.IdentifierType]string, productVersion string) ([]vex.Statement, error) {
+//
+// A statement declaring kernelVersionRanges is selected by comparing the
+// kernel version supplied via WithKernelVersion instead of the product
+// version. Without that option such statements are skipped, since there is
+// nothing to compare them against.
+func ConvertStatements(
+	statements []v1alpha1.Statement,
+	productIDs map[vex.IdentifierType]string,
+	productVersion string,
+	opts ...Option,
+) ([]vex.Statement, error) {
+	options := makeOptions(opts...)
+
 	result := make([]vex.Statement, 0, len(statements))
 
 	for _, stmt := range statements {
-		inRange, err := gitversion.VersionInRangeExclusive(productVersion, stmt.From, stmt.To)
+		inRange, err := statementApplies(stmt, productVersion, options)
 		if err != nil {
-			return result, fmt.Errorf("error checking version range: %w", err)
+			return result, err
 		} else if !inRange {
 			continue
 		}

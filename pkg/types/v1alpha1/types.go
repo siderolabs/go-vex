@@ -27,6 +27,21 @@ type Statement struct {
 	LastUpdated   string                `yaml:"lastUpdated,omitempty"`   // Time when the statement was last updated, RFC3339 format
 	Aliases       []vex.VulnerabilityID `yaml:"aliases"`                 // Alternative names for the vulnerability
 	VersionRanges []string              `yaml:"versionRanges,omitempty"` // ">= vX.Y.Z" constraints; one anchor per X.Y release line. Mutually exclusive with From/To.
+	// KernelVersionRanges declares fixedness in terms of the Linux kernel
+	// version rather than the Talos version, as ">= X.Y.Z" or
+	// ">= X.Y.Z < A.B.C" constraints; one anchor per stable branch.
+	// Mutually exclusive with From/To and VersionRanges.
+	//
+	// Use this when a vulnerability is fixed by an upstream stable backport,
+	// so the fact recorded is the one that is actually true ("fixed in
+	// 6.18.42") rather than a per-release-line translation of it. Use
+	// VersionRanges when the fix is ours: a Talos patch, a config change, or
+	// a backport we carry.
+	//
+	// Unlike VersionRanges these are not expanded into per-range statements:
+	// the ranges describe one kernel version axis, and the statement matches
+	// if the target kernel falls in any of them.
+	KernelVersionRanges []string `yaml:"kernelVersionRanges,omitempty"`
 }
 
 type ExploitabilityData struct {

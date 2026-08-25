@@ -14,6 +14,7 @@ import (
 
 	"github.com/openvex/go-vex/pkg/vex"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/siderolabs/go-vex/pkg/types/v1alpha1"
 	"github.com/siderolabs/go-vex/pkg/vexgen"
@@ -523,4 +524,94 @@ func TestE2E(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConvertStatementsKernelVersionRanges(t *testing.T) {
+	productIDs := map[vex.IdentifierType]string{
+		vex.PURL: "pkg:generic/talos@v1.0.0",
+	}
+
+	// CVE-2026-53078: fixed in 6.18.42 on the 6.18 stable branch and in 7.0.10
+	// on the 7.0 branch. 6.19.x never received the backport.
+	stmt := v1alpha1.Statement{
+		Name:    "CVE-2026-53078",
+		Created: "2026-07-14T00:00:00Z",
+		Status:  vex.StatusFixed,
+		KernelVersionRanges: []string{
+			">= 6.18.42 < 6.19.0",
+			">= 7.0.10",
+		},
+	}
+
+	for _, test := range []struct {
+		name          string
+		kernelVersion string
+		// productVersion is deliberately varied to show it does not influence
+		// selection for a kernel-ranged statement.
+		productVersion string
+		expectedCount  int
+	}{
+		{name: "fixed on 6.18 branch", kernelVersion: "6.18.46", productVersion: "v1.14.0-beta.1-97-ge489f9538", expectedCount: 1},
+		{name: "at the fix version", kernelVersion: "6.18.42", productVersion: "v1.13.8", expectedCount: 1},
+		{name: "before the fix", kernelVersion: "6.18.41", productVersion: "v1.14.0-beta.1", expectedCount: 0},
+		{name: "6.19 never got the backport", kernelVersion: "6.19.3", productVersion: "v1.15.0", expectedCount: 0},
+		{name: "fixed on 7.0 branch", kernelVersion: "7.0.10", productVersion: "v1.15.0", expectedCount: 1},
+		{name: "before the 7.0 fix", kernelVersion: "7.0.9", productVersion: "v1.15.0", expectedCount: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := vexgen.ConvertStatements(
+				[]v1alpha1.Statement{stmt}, productIDs, test.productVersion,
+				vexgen.WithKernelVersion(test.kernelVersion),
+			)
+			require.NoError(t, err)
+			assert.Len(t, result, test.expectedCount)
+		})
+	}
+}
+
+func TestConvertStatementsKernelRangesWithoutKernelVersion(t *testing.T) {
+	productIDs := map[vex.IdentifierType]string{
+		vex.PURL: "pkg:generic/talos@v1.0.0",
+	}
+
+	statements := []v1alpha1.Statement{
+		{
+			Name:                "CVE-2026-53078",
+			Created:             "2026-07-14T00:00:00Z",
+			Status:              vex.StatusFixed,
+			KernelVersionRanges: []string{">= 6.18.42"},
+		},
+		{
+			Name:    "CVE-2023-1234",
+			Created: "2023-01-01T00:00:00Z",
+			Status:  vex.StatusFixed,
+			From:    "v1.0.0",
+		},
+	}
+
+	// Without a kernel version the kernel-ranged statement cannot be shown to
+	// apply, so it is skipped; Talos-ranged statements are unaffected.
+	result, err := vexgen.ConvertStatements(statements, productIDs, "v1.5.0")
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	assert.Equal(t, vex.VulnerabilityID("CVE-2023-1234"), result[0].Vulnerability.Name)
+}
+
+func TestConvertStatementsInvalidKernelVersion(t *testing.T) {
+	productIDs := map[vex.IdentifierType]string{
+		vex.PURL: "pkg:generic/talos@v1.0.0",
+	}
+
+	statements := []v1alpha1.Statement{
+		{
+			Name:                "CVE-2026-53078",
+			Created:             "2026-07-14T00:00:00Z",
+			Status:              vex.StatusFixed,
+			KernelVersionRanges: []string{">= 6.18.42"},
+		},
+	}
+
+	_, err := vexgen.ConvertStatements(statements, productIDs, "v1.5.0", vexgen.WithKernelVersion("6.18"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CVE-2026-53078")
 }

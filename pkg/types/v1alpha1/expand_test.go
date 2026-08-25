@@ -221,3 +221,106 @@ func TestExpand_RejectsMalformedConstraint(t *testing.T) {
 		})
 	}
 }
+
+func TestExpand_KernelRangesNotExpanded(t *testing.T) {
+	src := v1alpha1.Statement{
+		Name:   "CVE-2026-53078",
+		Status: vex.StatusFixed,
+		KernelVersionRanges: []string{
+			">= 6.18.42 < 6.19.0",
+			">= 7.0.10",
+		},
+	}
+
+	got, err := v1alpha1.Expand(src)
+	require.NoError(t, err)
+
+	// Kernel ranges describe one version axis, not distinct release lines, so
+	// the statement is carried through whole rather than split.
+	require.Len(t, got, 1)
+	assert.Equal(t, src, got[0])
+}
+
+func TestExpand_KernelRangesValidated(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		errWant string
+		src     v1alpha1.Statement
+	}{
+		{
+			name: "malformed bound",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				KernelVersionRanges: []string{">= 6.18"},
+			},
+			errWant: "invalid kernelVersionRange",
+		},
+		{
+			name: "v prefix is not a kernel version",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				KernelVersionRanges: []string{">= v6.18.42"},
+			},
+			errWant: "invalid kernelVersionRange",
+		},
+		{
+			name: "empty range",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				KernelVersionRanges: []string{">= 6.19.0 < 6.18.0"},
+			},
+			errWant: "empty range",
+		},
+		{
+			name: "overlapping ranges",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				KernelVersionRanges: []string{">= 6.18.42 < 6.19.0", ">= 6.18.44"},
+			},
+			errWant: "overlapping kernelVersionRanges",
+		},
+		{
+			name: "cannot combine with versionRanges",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				VersionRanges:       []string{">= v1.13.8"},
+				KernelVersionRanges: []string{">= 6.18.42"},
+			},
+			errWant: "cannot be combined with kernelVersionRanges",
+		},
+		{
+			name: "cannot combine with from/to",
+			src: v1alpha1.Statement{
+				Name:                "CVE-1",
+				From:                "v1.13.8",
+				KernelVersionRanges: []string{">= 6.18.42"},
+			},
+			errWant: "cannot be combined with explicit from/to",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := v1alpha1.Expand(test.src)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.errWant)
+		})
+	}
+}
+
+func TestParseKernelRange(t *testing.T) {
+	for _, test := range []struct {
+		input    string
+		wantFrom string
+		wantTo   string
+	}{
+		{input: ">= 6.18.42 < 6.19.0", wantFrom: "6.18.42", wantTo: "6.19.0"},
+		{input: ">= 7.0.10", wantFrom: "7.0.10", wantTo: ""},
+		{input: "  >=  6.18.42   <  6.19.0  ", wantFrom: "6.18.42", wantTo: "6.19.0"},
+	} {
+		t.Run(test.input, func(t *testing.T) {
+			from, to, err := v1alpha1.ParseKernelRange(test.input)
+			require.NoError(t, err)
+			assert.Equal(t, test.wantFrom, from)
+			assert.Equal(t, test.wantTo, to)
+		})
+	}
+}
