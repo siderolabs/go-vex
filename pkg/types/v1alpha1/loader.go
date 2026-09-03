@@ -33,13 +33,11 @@ func WithPURLOverride(purl string) Option {
 // Statements that declare VersionRanges are expanded into one bounded
 // Statement per release line via Expand before the data is returned.
 func LoadExploitabilityData(reader io.Reader, opts ...Option) (*ExploitabilityData, error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("error reading data: %w", err)
-	}
+	decoder := yaml.NewDecoder(reader)
+	decoder.KnownFields(true)
 
 	var raw ExploitabilityData
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	if err := decoder.Decode(&raw); err != nil {
 		return nil, fmt.Errorf("error unmarshalling data: %w", err)
 	}
 
