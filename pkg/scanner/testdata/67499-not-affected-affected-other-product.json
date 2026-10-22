@@ -1,0 +1,40 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-67499-not-affected-affected-other-product",
+  "author": "Test Author",
+  "version": 1,
+  "tooling": "scanner.test version undefined (undefined)",
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-67499"
+      },
+      "products": [
+        {
+          "identifiers": {
+            "purl": "pkg:generic/talos@v1.10.0"
+          }
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Only reachable when the CNI plugin is invoked with an attacker-controlled network configuration.",
+      "timestamp": "2025-07-14T12:00:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-67499"
+      },
+      "products": [
+        {
+          "identifiers": {
+            "purl": "pkg:generic/talos@v1.11.0"
+          }
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2025-07-14T12:00:00Z"
+    }
+  ],
+  "timestamp": "2025-07-16T13:46:22Z"
+}

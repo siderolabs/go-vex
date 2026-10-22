@@ -250,4 +250,13 @@ func TestScanSBOMAffected(t *testing.T) {
 		_, found = openVEXStatement(t, m)
 		assert.False(t, found, "expected no VEX statement attached to the match")
 	})
+
+	t.Run("not affected, affected for another product", func(t *testing.T) {
+		doc, _, err := sc.ScanSBOM("./testdata/test.spdx.json", nil, "./testdata/67499-not-affected-affected-other-product.json")
+		require.NoError(t, err)
+
+		// the affected statement for another product must not hide the not_affected one for the scanned product
+		_, found := findMatch(doc, "CVE-2025-67499")
+		assert.False(t, found, "expected not to find CVE-2025-67499 (not_affected)")
+	})
 }

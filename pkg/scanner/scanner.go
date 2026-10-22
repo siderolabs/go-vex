@@ -205,7 +205,9 @@ func (sc *Scanner) ScanSBOM(sbomPath string, timestamp *time.Time, vexPath ...st
 		return nil, nil, fmt.Errorf("error scanning SBOM: %w", err)
 	}
 
-	restorePlaceholderIgnored(matches, ignoredMatches)
+	if err = restorePlaceholderIgnored(vexProcessor, &pkgContext, matches, ignoredMatches); err != nil {
+		return nil, nil, err
+	}
 
 	modelDocument, err := models.NewDocument(
 		clio.Identification{
@@ -274,10 +276,17 @@ func affectedIgnoreRules(vexPath []string) ([]match.IgnoreRule, error) {
 }
 
 // restorePlaceholderIgnored puts back the matches that were ignored only by the
-// placeholder rules and that no VEX statement re-added: the statement is for a
-// vulnerability with that name, but it does not apply to the scanned product
-// (or package), so the match has to be reported as if there were no VEX data.
-func restorePlaceholderIgnored(matches *match.Matches, ignoredMatches []match.IgnoredMatch) {
+// placeholder rules and that no VEX statement re-added: the affected statement
+// does not apply to the scanned product (or package), so the match has to be
+// reported as if there were no placeholder rules.
+//
+// The placeholder rules ignore a match before the VEX processor filters it, so
+// a fixed or not_affected statement that does apply to the scanned product was
+// never checked. The restored matches go through the VEX processor again, so
+// such a statement still drops the match.
+func restorePlaceholderIgnored(vexProcessor *vex.Processor, pkgContext *pkg.Context, matches *match.Matches, ignoredMatches []match.IgnoredMatch) error {
+	restored := match.NewMatches()
+
 	for _, ignored := range ignoredMatches {
 		onlyPlaceholder := len(ignored.AppliedIgnoreRules) > 0
 
@@ -290,7 +299,16 @@ func restorePlaceholderIgnored(matches *match.Matches, ignoredMatches []match.Ig
 		}
 
 		if onlyPlaceholder {
-			matches.Add(ignored.Match)
+			restored.Add(ignored.Match)
 		}
 	}
+
+	remaining, _, err := vexProcessor.ApplyVEX(pkgContext, &restored, nil)
+	if err != nil {
+		return fmt.Errorf("error applying VEX to restored matches: %w", err)
+	}
+
+	matches.Add(remaining.Sorted()...)
+
+	return nil
 }
